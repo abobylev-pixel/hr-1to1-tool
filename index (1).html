@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR 1:1 Tool v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f4f8; min-height:100vh; }
+
+#loginScreen {
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; background:linear-gradient(135deg,#1a2a4a 0%,#2a9d8f 100%);
+}
+.login-card { background:white; border-radius:16px; padding:40px; width:380px; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+.login-card h2 { color:#1a2a4a; margin-bottom:8px; font-size:22px; }
+.login-card p { color:#888; font-size:13px; margin-bottom:24px; }
+.login-card select, .login-card input {
+  width:100%; padding:12px; border:1.5px solid #ddd;
+  border-radius:8px; font-size:14px; margin-bottom:12px; outline:none;
+}
+.btn-login { width:100%; padding:13px; background:#1a2a4a; color:white; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; }
+.btn-login:hover { background:#2a9d8f; }
+.login-error { color:#e74c3c; font-size:13px; margin-top:8px; display:none; }
+
+#app { display:none; }
+.topbar { background:#1a2a4a; color:white; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
+.topbar h1 { font-size:17px; font-weight:700; }
+.topbar-user { font-size:13px; opacity:0.75; margin-left:12px; }
+.btn-logout { background:rgba(255,255,255,0.15); color:white; border:none; padding:7px 16px; border-radius:8px; cursor:pointer; font-size:13px; }
+
+.tabs { background:white; border-bottom:1.5px solid #e8edf2; display:flex; padding:0 28px; }
+.tab { padding:14px 20px; cursor:pointer; font-size:14px; font-weight:600; color:#888; border-bottom:3px solid transparent; transition:all 0.2s; }
+.tab.active { color:#1a2a4a; border-bottom-color:#2a9d8f; }
+.tab:hover { color:#1a2a4a; }
+
+.content { padding:24px 28px; max-width:1200px; margin:0 auto; }
+.section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+.section-header h2 { font-size:18px; color:#1a2a4a; font-weight:700; }
+
+.btn-primary { background:#1a2a4a; color:white; border:none; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; transition:background 0.2s; }
+.btn-primary:hover { background:#2a9d8f; }
+.btn-secondary { background:#f0f4f8; color:#1a2a4a; border:1.5px solid #ddd; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-secondary:hover { background:#e0e8f0; }
+.btn-danger { background:#fef0f0; color:#e74c3c; border:1.5px solid #fcc; padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-green { background:#eafaf5; color:#2d9e6b; border:1.5px solid #b2e8d0; padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-orange { background:#fff8e1; color:#e67e22; border:1.5px solid #ffe082; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-orange:hover { background:#fff0b3; }
+
+.table-wrap { background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+table { width:100%; border-collapse:collapse; }
+th { background:#f7f9fb; padding:11px 14px; text-align:left; font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.5px; }
+td { padding:12px 14px; font-size:13px; color:#333; border-top:1px solid #f0f4f8; }
+tr:hover td { background:#fafcff; }
+
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.badge-risk-high { background:#fef0f0; color:#e74c3c; }
+.badge-risk-mid { background:#fff8e1; color:#f39c12; }
+.badge-risk-low { background:#eafaf5; color:#2d9e6b; }
+
+.filter-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.filter-bar select, .filter-bar input { padding:8px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none; background:white; }
+.filter-bar select:focus, .filter-bar input:focus { border-color:#2a9d8f; }
+
+.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:white; border-radius:16px; padding:28px; width:520px; max-height:85vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
+.modal h3 { font-size:17px; color:#1a2a4a; margin-bottom:18px; }
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:12px; font-weight:700; color:#666; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px; }
+.form-group input, .form-group select, .form-group textarea { width:100%; padding:9px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; outline:none; font-family:inherit; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:#2a9d8f; }
+.form-group textarea { resize:vertical; min-height:75px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+
+.mood-selector { display:flex; gap:8px; }
+.mood-btn { width:40px; height:40px; border-radius:50%; border:2px solid #ddd; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; background:white; }
+.mood-btn.selected { border-color:#2a9d8f; background:#eafaf5; }
+
+/* IMPORT PANEL */
+.import-panel { background:white; border-radius:12px; padding:20px 24px; margin-bottom:20px; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+.import-panel h3 { font-size:15px; color:#1a2a4a; margin-bottom:14px; font-weight:700; }
+.import-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.import-info { margin-top:12px; font-size:12px; color:#999; }
+.import-result { margin-top:12px; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; display:none; }
+.import-result.success { background:#eafaf5; color:#2d9e6b; border:1px solid #b2e8d0; }
+.import-result.error { background:#fef0f0; color:#e74c3c; border:1px solid #fcc; }
+
+/* HR STATS DASHBOARD */
+.stats-header { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+.stats-header label { font-size:13px; font-weight:700; color:#555; }
+.stats-header input, .stats-header select { padding:8px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none; }
+.hr-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+.hr-card { background:white; border-radius:12px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,0.07); border-top:4px solid #1a2a4a; }
+.hr-card.nelli { border-top-color:#2a9d8f; }
+.hr-card.katerina { border-top-color:#7b5ea7; }
+.hr-card.alina { border-top-color:#e67e22; }
+.hr-card h4 { font-size:15px; color:#1a2a4a; margin-bottom:14px; font-weight:700; }
+.hr-stat-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f0f4f8; }
+.hr-stat-row:last-child { border-bottom:none; }
+.hr-stat-label { font-size:13px; color:#666; }
+.hr-stat-val { font-size:18px; font-weight:800; color:#1a2a4a; }
+.hr-stat-val.green { color:#2d9e6b; }
+.hr-stat-val.orange { color:#e67e22; }
+.hr-stat-val.purple { color:#7b5ea7; }
+
+.summary-table { background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+
+.stat-grid-top { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.stat-box { background:white; border-radius:10px; padding:16px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.stat-num { font-size:26px; font-weight:800; color:#1a2a4a; }
+.stat-label { font-size:12px; color:#888; margin-top:4px; }
+
+.empty-state { text-align:center; padding:40px; color:#aaa; font-size:14px; }
+.empty-state div { font-size:32px; margin-bottom:10px; }
+
+.quick-date-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.quick-btn { padding:6px 14px; border-radius:20px; border:1.5px solid #ddd; background:white; cursor:pointer; font-size:12px; font-weight:600; color:#555; transition:all 0.15s; }
+.quick-btn:hover, .quick-btn.active { background:#1a2a4a; color:white; border-color:#1a2a4a; }
+
+/* EMPLOYEE PROFILE DRILL-DOWN */
+.emp-link { color:#1a2a4a; cursor:pointer; text-decoration:none; border-bottom:1px dashed #b7c3d6; }
+.emp-link:hover { color:#2a9d8f; border-bottom-color:#2a9d8f; }
+.modal-wide { width:680px; }
+.profile-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+.profile-meta { font-size:13px; color:#666; line-height:1.6; }
+.profile-section-title { font-size:13px; font-weight:700; color:#555; margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.3px; }
+.timeline-item { border-left:3px solid #2a9d8f; padding:10px 16px; margin-bottom:12px; background:#fafcff; border-radius:0 8px 8px 0; }
+.timeline-item.risk-high { border-left-color:#e74c3c; }
+.timeline-item.risk-mid { border-left-color:#f39c12; }
+.timeline-item-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.timeline-note { font-size:13px; color:#555; margin-bottom:4px; }
+.timeline-followup { font-size:13px; color:#e67e22; }
+.mood-trend { display:flex; gap:4px; align-items:center; font-size:16px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>HR 1:1 Tool</h2>
+    <p>Войдите под корпоративной Google-почтой</p>
+    <div id="googleSignInBtn" style="display:flex;justify-content:center;margin:10px 0;"></div>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;">
+      <h1>HR 1:1 Tool</h1>
+      <span class="topbar-user" id="topbarUser"></span>
+    </div>
+    <button class="btn-logout" onclick="manualRefresh()" id="btnRefresh" style="margin-right:8px;">🔄 Обновить</button>
+    <button class="btn-logout" onclick="doLogout()">Выйти</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('employees')" id="tab-employees">👥 Сотрудники</div>
+    <div class="tab" onclick="showTab('meetings')" id="tab-meetings">📋 Встречи 1:1</div>
+    <div class="tab" onclick="showTab('hrstats')" id="tab-hrstats">📈 Статистика HR</div>
+    <div class="tab" onclick="showTab('report')" id="tab-report">📊 Отчёт</div>
+    <div class="tab" onclick="showTab('users')" id="tab-users" style="display:none">⚙️ Пользователи</div>
+    <div class="tab" onclick="showTab('settings')" id="tab-settings" style="display:none">✉️ Приглашения</div>
+  </div>
+
+  <!-- EMPLOYEES -->
+  <div class="content" id="tab-content-employees">
+
+    <!-- IMPORT PANEL -->
+    <div class="import-panel" id="importPanel">
+      <h3>📥 Синхронизация данных из HiBob</h3>
+      <div class="import-actions">
+        <button class="btn-orange" onclick="document.getElementById('excelInput').click()">📂 Выбрать файл Excel</button>
+        <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcelFile(event)" />
+        <button class="btn-primary" id="btnUpdate" onclick="applyImport()" disabled style="opacity:0.5;">🔄 Обновить данные</button>
+        <span id="fileNameLabel" style="font-size:13px;color:#888;"></span>
+      </div>
+      <div class="import-info">
+        💡 Загрузите файл из HiBob — колонки определятся автоматически. Нажмите "Обновить данные" для синхронизации.
+        Новые сотрудники будут добавлены, существующие — обновлены.
+      </div>
+      <div class="import-result" id="importResult"></div>
+    </div>
+
+    <div class="section-header">
+      <h2>Сотрудники <span id="empCount" style="font-size:14px;color:#999;font-weight:400;"></span></h2>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="openAddEmployee()">+ Добавить</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <select id="filterDept" onchange="renderEmployees()">
+        <option value="">Все Site</option>
+      </select>
+      <select id="filterHR" onchange="renderEmployees()">
+        <option value="">Все HR-менеджеры</option>
+        <option>Нелли</option>
+        <option>Катерина</option>
+        <option>Алина</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="🔍 Поиск по имени..." oninput="renderEmployees()" style="min-width:200px;" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Сотрудник</th><th>Должность</th><th>Site</th>
+          <th>Руководитель</th><th>HR-менеджер</th><th>Действия</th>
+        </tr></thead>
+        <tbody id="employeesTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MEETINGS -->
+  <div class="content" id="tab-content-meetings" style="display:none">
+    <div class="section-header">
+      <h2>Встречи 1:1</h2>
+      <button class="btn-primary" onclick="openAddMeeting()">+ Добавить встречу</button>
+    </div>
+    <div class="filter-bar">
+      <select id="filterMeetingDept" onchange="renderMeetings()"><option value="">Все Site</option></select>
+      <select id="filterMeetingHR" onchange="renderMeetings()">
+        <option value="">Все HR-менеджеры</option>
+        <option>Нелли</option><option>Катерина</option><option>Алина</option>
+      </select>
+      <input type="month" id="filterMonth" onchange="renderMeetings()" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Дата</th><th>Сотрудник</th><th>Site</th>
+          <th>Настроение</th><th>Риск</th><th>Заметки</th><th>Follow-up</th><th></th>
+        </tr></thead>
+        <tbody id="meetingsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HR STATS -->
+  <div class="content" id="tab-content-hrstats" style="display:none">
+    <div class="section-header">
+      <h2>Статистика по HR-менеджерам</h2>
+      <button class="btn-primary" onclick="exportHRStats()">⬇ Экспорт</button>
+    </div>
+
+    <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.07);">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:10px;">Быстрый выбор периода:</div>
+        <div class="quick-date-btns">
+          <button class="quick-btn" onclick="setQuickDate('week')">Эта неделя</button>
+          <button class="quick-btn" onclick="setQuickDate('lastweek')">Прошлая неделя</button>
+          <button class="quick-btn" onclick="setQuickDate('month')">Этот месяц</button>
+          <button class="quick-btn" onclick="setQuickDate('lastmonth')">Прошлый месяц</button>
+          <button class="quick-btn" onclick="setQuickDate('all')">Всё время</button>
+        </div>
+      </div>
+      <div class="stats-header">
+        <label>С:</label>
+        <input type="date" id="statsFrom" onchange="renderHRStats()" />
+        <label>По:</label>
+        <input type="date" id="statsTo" onchange="renderHRStats()" />
+      </div>
+    </div>
+
+    <div class="stat-grid-top">
+      <div class="stat-box"><div class="stat-num" id="stTotal">0</div><div class="stat-label">Всего встреч</div></div>
+      <div class="stat-box"><div class="stat-num" id="stEmps">0</div><div class="stat-label">Сотрудников охвачено</div></div>
+      <div class="stat-box"><div class="stat-num" id="stMood">—</div><div class="stat-label">Средний моральный дух</div></div>
+      <div class="stat-box"><div class="stat-num" id="stRisk">0</div><div class="stat-label">Высокий риск</div></div>
+    </div>
+
+    <div class="hr-cards" id="hrCards"></div>
+
+    <div class="summary-table">
+      <table>
+        <thead><tr>
+          <th>HR-менеджер</th><th>Встреч в периоде</th><th>Сотрудников</th>
+          <th>Ср. настроение</th><th>Высокий риск</th><th>Follow-up открыто</th>
+        </tr></thead>
+        <tbody id="hrSummaryTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- REPORT -->
+  <div class="content" id="tab-content-report" style="display:none">
+    <div class="section-header">
+      <h2>Ежемесячный отчёт</h2>
+      <button class="btn-primary" onclick="exportReport()">⬇ Скачать CSV</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+      <label style="font-size:13px;font-weight:700;color:#555;">Период:</label>
+      <select id="reportMonth" onchange="renderReport()"><option value="">Всё время</option></select>
+    </div>
+    <div class="stat-grid-top">
+      <div class="stat-box"><div class="stat-num" id="rTotal">0</div><div class="stat-label">Встреч</div></div>
+      <div class="stat-box"><div class="stat-num" id="rEmployees">0</div><div class="stat-label">Сотрудников</div></div>
+      <div class="stat-box"><div class="stat-num" id="rMood">—</div><div class="stat-label">Ср. настроение</div></div>
+      <div class="stat-box"><div class="stat-num" id="rRisk">0</div><div class="stat-label">Высокий риск</div></div>
+    </div>
+    <div class="table-wrap"><div id="reportDetails"></div></div>
+  </div>
+</div>
+
+  <!-- USERS TAB -->
+  <div class="content" id="tab-content-users" style="display:none">
+    <div class="section-header">
+      <h2>Управление пользователями</h2>
+      <button class="btn-primary" onclick="openAddUser()">+ Добавить пользователя</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Имя</th><th>Фамилия</th><th>Email (логин)</th><th>Роль</th><th>HR имя в системе</th><th>Действия</th>
+        </tr></thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB (calendar invite template) -->
+  <div class="content" id="tab-content-settings" style="display:none">
+    <div class="section-header">
+      <h2>Приглашения на 1:1 в календарь</h2>
+    </div>
+    <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.07);max-width:640px;">
+      <div class="import-info" style="margin:0 0 16px;">
+        💡 Когда HR-менеджер назначает встречу 1:1 с датой и временем, сотруднику и HR-менеджеру
+        будет предложено отправить приглашение в календарь на основе этого шаблона.
+        Доступные плейсхолдеры: <code>{employee}</code>, <code>{hr}</code>, <code>{date}</code>, <code>{time}</code>.
+      </div>
+      <div class="form-group"><label>Тема письма</label><input type="text" id="inviteSubject" placeholder="1:1 HR Manager — {employee}" /></div>
+      <div class="form-group"><label>Текст приглашения</label><textarea id="inviteBody" style="min-height:140px;" placeholder="Здравствуйте, {employee}! Приглашаем вас на встречу 1:1 с {hr} — {date} в {time}."></textarea></div>
+      <div class="modal-actions" style="justify-content:flex-start;">
+        <button class="btn-primary" onclick="saveInviteSettings()">Сохранить шаблон</button>
+      </div>
+      <div class="import-result" id="inviteSettingsResult"></div>
+    </div>
+    <div class="import-info" style="max-width:640px;">
+      ⚠️ Автоматическая отправка писем и бронирование события сразу в оба календаря (Google/Outlook)
+      без участия человека требует серверной интеграции (Calendar API + почтовый сервис) — этот файл
+      не имеет собственного бэкенда для отправки почты. Сейчас, при назначении встречи с датой и временем,
+      инструмент подготовит .ics-файл события и черновик письма по этому шаблону, который останется
+      только отправить.
+    </div>
+  </div>
+
+<!-- MODAL ADD/EDIT USER -->
+<div class="modal-overlay" id="modalUser">
+  <div class="modal">
+    <h3 id="modalUserTitle">Добавить пользователя</h3>
+    <input type="hidden" id="userOldEmail" />
+    <div class="form-group"><label>Имя *</label><input type="text" id="userName" placeholder="Имя" /></div>
+    <div class="form-group"><label>Фамилия</label><input type="text" id="userSurname" placeholder="Фамилия" /></div>
+    <div class="form-group"><label>Email (корп. почта) *</label><input type="email" id="userEmail" placeholder="email@company.com" /></div>
+    <div class="form-group"><label>Роль *</label>
+      <select id="userRole" onchange="toggleHRNameField()">
+        <option value="hr_manager">👤 HR Manager</option>
+        <option value="hr_bp_lead">⭐ HR BP Lead</option>
+        <option value="head_hr">👑 Head of HR / CHRO</option>
+        <option value="admin">🔑 Admin</option>
+      </select>
+    </div>
+    <div class="form-group" id="userHRNameGroup"><label id="userHRNameLabel">Имя в системе (как отображается у сотрудников)</label>
+      <input type="text" id="userHRName" placeholder="Например: Нелли" />
+      <div id="userHRNameHint" style="font-size:12px;color:#999;margin-top:5px;"></div>
+    </div>
+    <div id="userPasswordNote" style="font-size:12px;color:#999;margin-bottom:8px;">
+      Отдельный пароль не нужен — вход происходит через корпоративный Google-аккаунт (@<span id="companyDomainLabel"></span>). Просто добавьте сюда его рабочую почту.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modalUser')">Отмена</button>
+      <button class="btn-primary" onclick="saveUser()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EMPLOYEE -->
+<div class="modal-overlay" id="modalEmployee">
+  <div class="modal">
+    <h3 id="modalEmpTitle">Добавить сотрудника</h3>
+    <input type="hidden" id="empId" />
+    <div class="form-group"><label>Имя *</label><input type="text" id="empFirst" /></div>
+    <div class="form-group"><label>Фамилия *</label><input type="text" id="empLast" /></div>
+    <div class="form-group"><label>Должность *</label><input type="text" id="empRole" /></div>
+    <div class="form-group"><label>Site *</label>
+      <select id="empDept"><option value="">— Выберите —</option></select>
+    </div>
+    <div class="form-group"><label>Email (для приглашений в календарь)</label><input type="email" id="empEmail" placeholder="employee@company.com" /></div>
+    <div class="form-group"><label>Руководитель</label><input type="text" id="empManager" /></div>
+    <div class="form-group"><label>HR-менеджер</label>
+      <select id="empHR">
+        <option value="">— Выберите —</option>
+        <option>Нелли</option><option>Катерина</option><option>Алина</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modalEmployee')">Отмена</button>
+      <button class="btn-primary" onclick="saveEmployee()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MEETING -->
+<div class="modal-overlay" id="modalMeeting">
+  <div class="modal">
+    <h3>Встреча 1:1</h3>
+    <input type="hidden" id="meetId" />
+    <div class="form-group"><label>Сотрудник *</label><select id="meetEmployee"></select></div>
+    <div class="form-group" style="display:flex;gap:10px;">
+      <div style="flex:1"><label>Дата *</label><input type="date" id="meetDate" /></div>
+      <div style="flex:1"><label>Время</label><input type="time" id="meetTime" value="10:00" /></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#666;margin:-6px 0 14px;cursor:pointer;">
+      <input type="checkbox" id="meetSendInvite" style="width:auto;margin:0;" checked /> Подготовить приглашение в календарь после сохранения
+    </label>
+    <div class="form-group">
+      <label>Моральный дух</label>
+      <div class="mood-selector">
+        <button class="mood-btn" onclick="selectMood(1)" id="mood1">😟</button>
+        <button class="mood-btn" onclick="selectMood(2)" id="mood2">😕</button>
+        <button class="mood-btn" onclick="selectMood(3)" id="mood3">😐</button>
+        <button class="mood-btn" onclick="selectMood(4)" id="mood4">😊</button>
+        <button class="mood-btn" onclick="selectMood(5)" id="mood5">😄</button>
+      </div>
+    </div>
+    <div class="form-group"><label>Риск увольнения</label>
+      <select id="meetRisk"><option value="low">Низкий</option><option value="mid">Средний</option><option value="high">Высокий</option></select>
+    </div>
+    <div class="form-group"><label>Заметки</label><textarea id="meetNotes" placeholder="О чём говорили..."></textarea></div>
+    <div class="form-group"><label>Follow-up</label><textarea id="meetFollowup" placeholder="Что нужно сделать..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modalMeeting')">Отмена</button>
+      <button class="btn-primary" onclick="saveMeeting()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EMPLOYEE PROFILE (drill-down history) -->
+<div class="modal-overlay" id="modalEmpProfile">
+  <div class="modal modal-wide">
+    <input type="hidden" id="empProfileId" />
+    <div class="profile-header">
+      <h3 id="empProfileName">Сотрудник</h3>
+      <button class="btn-green" onclick="goAddMeetingFromProfile()">+ Добавить встречу</button>
+    </div>
+    <div class="profile-meta" id="empProfileInfo"></div>
+    <div class="stat-grid-top" id="empProfileStats" style="margin-top:16px;"></div>
+    <div class="profile-section-title">История встреч 1:1</div>
+    <div id="empProfileTimeline"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modalEmpProfile')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG — fill these in after deploying Code.gs and creating an OAuth Client ID =====
+const CONFIG = {
+  API_URL: 'https://script.google.com/a/macros/madeofstorm.com/s/AKfycbwaJaPiBDqr3eYp5xl8R5RqNuThMpG4ZDefXRxTJzfSc7nmRIg_Zhv2vwnakfBSoEWBjA/exec',
+  GOOGLE_CLIENT_ID: 'PASTE_YOUR_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com',
+  COMPANY_DOMAIN: 'madeofstorm.com'
+};
+
+const ROLE_LABELS = {
+  'admin': '🔑 Admin',
+  'head_hr': '👑 Head of HR / CHRO',
+  'hr_bp_lead': '⭐ HR BP Lead',
+  'hr_manager': '👤 HR Manager'
+};
+
+// Roles that can see all data
+function canSeeAll(role) { return ['admin','head_hr','hr_bp_lead'].includes(role); }
+
+let currentUser = null;
+let ID_TOKEN = null; // Google ID token from Sign-In; sent with every API call, verified server-side each time
+let selectedMood = 0;
+let pendingImportData = null; // держим данные до нажатия "Обновить"
+let profileReturnEmpId = null; // если задан, после закрытия окна встречи снова откроется профиль сотрудника
+
+// In-memory caches — refreshed via refreshAllData() on login, after every save/delete, and via
+// the manual "🔄 Обновить" button. No real-time push (Google Sheets doesn't offer that) — a
+// short delay or a manual refresh is the trade-off for keeping data inside Google Workspace.
+let USERS = {};
+let employees = [];
+let meetings = [];
+let INVITE_SETTINGS = {
+  subject: '1:1 HR Manager — {employee}',
+  body: 'Здравствуйте, {employee}!\n\nПриглашаем вас на встречу 1:1 с {hr} — {date} в {time}.\n\nДо встречи!'
+};
+
+document.getElementById('companyDomainLabel').textContent = CONFIG.COMPANY_DOMAIN;
+
+// ===== API CALL (Google Apps Script backend, verifies ID_TOKEN on every request) =====
+async function apiCall(action, payload) {
+  const resp = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    // text/plain avoids a CORS preflight OPTIONS request, which Apps Script Web Apps
+    // don't handle by default — the body is still valid JSON, Code.gs just JSON.parse()s it.
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ idToken: ID_TOKEN, action, payload: payload || {} })
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'Ошибка запроса');
+  return data.data;
+}
+
+// ===== GOOGLE SIGN-IN =====
+window.onload = function() {
+  if (!window.google || CONFIG.GOOGLE_CLIENT_ID.startsWith('PASTE_')) {
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginError').textContent = 'Вход ещё не настроен: заполните CONFIG.GOOGLE_CLIENT_ID и CONFIG.API_URL в коде.';
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: CONFIG.GOOGLE_CLIENT_ID,
+    hosted_domain: CONFIG.COMPANY_DOMAIN,
+    callback: handleCredentialResponse
+  });
+  google.accounts.id.renderButton(document.getElementById('googleSignInBtn'), { theme: 'outline', size: 'large', text: 'signin_with', width: 300 });
+  google.accounts.id.prompt(); // offers One Tap silent sign-in if there's a live Google session
+};
+
+async function handleCredentialResponse(response) {
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+  ID_TOKEN = response.credential;
+  try {
+    currentUser = await apiCall('whoami');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    applyRoleUI();
+    await refreshAllData();
+    populateReportMonths();
+    setQuickDate('week');
+  } catch (e) {
+    ID_TOKEN = null;
+    err.style.display = 'block';
+    err.textContent = e.message;
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  ID_TOKEN = null;
+  USERS = {}; employees = []; meetings = [];
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  if (window.google) google.accounts.id.disableAutoSelect();
+}
+
+// Pulls fresh Employees/Meetings/(Users, if allowed)/Invite settings from the Sheet and
+// re-renders whatever tab is currently on screen. Call after login and after every mutation.
+async function refreshAllData() {
+  const tasks = [
+    apiCall('listEmployees').then(r => { employees = r; }),
+    apiCall('listMeetings').then(r => { meetings = r; }),
+    apiCall('getInviteSettings').then(r => { INVITE_SETTINGS = r; })
+  ];
+  if (canSeeAll(currentUser.role)) {
+    tasks.push(apiCall('listUsers').then(r => {
+      USERS = {};
+      r.forEach(u => { USERS[u.email] = u; });
+    }));
+  } else {
+    USERS = { [currentUser.email]: currentUser };
+  }
+  await Promise.all(tasks);
+  renderDeptOptions();
+  updateHRSelects();
+  refreshVisibleTab();
+}
+
+async function manualRefresh() {
+  const btn = document.getElementById('btnRefresh');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Обновляю…'; }
+  try { await refreshAllData(); } catch (e) { alert('Не удалось обновить: ' + e.message); }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Обновить'; }
+}
+
+// Re-renders whichever tab is currently on screen after fresh data loads
+function refreshVisibleTab() {
+  const active = ['employees','meetings','hrstats','report','users','settings'].find(t => {
+    const el = document.getElementById(`tab-content-${t}`);
+    return el && el.style.display === 'block';
+  }) || 'employees';
+  if (active === 'employees') renderEmployees();
+  else if (active === 'meetings') renderMeetings();
+  else if (active === 'hrstats') renderHRStats();
+  else if (active === 'report') renderReport();
+  else if (active === 'users') renderUsersTable();
+  else if (active === 'settings') renderInviteSettings();
+}
+
+// Refreshes topbar/tab visibility based on currentUser.role — called after login and after
+// an admin edits their own account (e.g. handing off the admin role to someone else).
+function applyRoleUI() {
+  if (!currentUser) return;
+  document.getElementById('topbarUser').textContent = `${currentUser.name} — ${ROLE_LABELS[currentUser.role]||currentUser.role}`;
+  const usersTab = document.getElementById('tab-users');
+  if (usersTab) usersTab.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  const settingsTab = document.getElementById('tab-settings');
+  if (settingsTab) settingsTab.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  const importPanel = document.getElementById('importPanel');
+  if (importPanel) importPanel.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  // If we just lost admin rights while sitting on the Users/Settings tab, bounce back to Employees
+  const usersContent = document.getElementById('tab-content-users');
+  const settingsContent = document.getElementById('tab-content-settings');
+  if (currentUser.role !== 'admin' &&
+      ((usersContent && usersContent.style.display === 'block') ||
+       (settingsContent && settingsContent.style.display === 'block'))) {
+    showTab('employees');
+  }
+}
+
+// ===== TABS =====
+function showTab(tab) {
+  ['employees','meetings','hrstats','report','users','settings'].forEach(t => {
+    const el = document.getElementById(`tab-content-${t}`);
+    if (el) el.style.display = t===tab ? 'block' : 'none';
+    const tabEl = document.getElementById(`tab-${t}`);
+    if (tabEl) tabEl.classList.toggle('active', t===tab);
+  });
+  if (tab==='meetings') { syncDeptFilters(); renderMeetings(); }
+  if (tab==='hrstats') renderHRStats();
+  if (tab==='report') renderReport();
+  if (tab==='users') renderUsersTable();
+  if (tab==='settings') renderInviteSettings();
+}
+
+// ===== DEPT OPTIONS =====
+function getDepts() {
+  const depts = [...new Set(employees.map(e => e.dept).filter(Boolean))].sort();
+  return depts;
+}
+
+function renderDeptOptions() {
+  const depts = getDepts();
+  const selectors = ['filterDept','filterMeetingDept','empDept'];
+  selectors.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const isEmpDept = id === 'empDept';
+    const cur = sel.value;
+    sel.innerHTML = isEmpDept
+      ? '<option value="">— Выберите —</option>'
+      : '<option value="">Все Site</option>';
+    depts.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      sel.appendChild(opt);
+    });
+    // Add manual options if no data yet
+    if (depts.length === 0 && isEmpDept) {
+      ['To The Moon','Shogun','CoolAffs','BlackFlag','BetMen','HR','Finance','IT'].forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d; opt.textContent = d;
+        sel.appendChild(opt);
+      });
+    }
+    if (cur) sel.value = cur;
+  });
+}
+
+function syncDeptFilters() { renderDeptOptions(); }
+
+// ===== EXCEL IMPORT =====
+function loadExcelFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('fileNameLabel').textContent = `📄 ${file.name}`;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+      if (!rows.length) { showImportResult('error','Файл пустой'); return; }
+      pendingImportData = rows;
+      const btn = document.getElementById('btnUpdate');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      showImportResult('success', `✅ Файл загружен: ${rows.length} строк. Нажмите "Обновить данные" для применения.`);
+    } catch(err) {
+      showImportResult('error','❌ Ошибка: ' + err.message);
+    }
+    event.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function applyImport() {
+  if (!pendingImportData) return;
+  const rows = pendingImportData;
+  const colMap = detectColumns(Object.keys(rows[0]));
+  let skipped = 0;
+  const importRows = [];
+
+  rows.forEach(row => {
+    // Parse name
+    let first = '', last = '';
+    if (colMap.displayName) {
+      const full = String(getField(row, colMap.displayName, '')).trim();
+      const parts = full.split(' ');
+      first = parts[0] || '';
+      last = parts.slice(1).join(' ') || '';
+    }
+    if (colMap.first) first = String(getField(row, colMap.first, '')).trim() || first;
+    if (colMap.last) last = String(getField(row, colMap.last, '')).trim() || last;
+    if (!first) { skipped++; return; }
+
+    const dept = String(getField(row, colMap.dept, '')).trim();
+    const role = String(getField(row, colMap.role, '')).trim();
+    const manager = String(getField(row, colMap.manager, '')).trim();
+    const hrRaw = String(getField(row, colMap.hr, '')).trim();
+    const hrName = mapHRName(hrRaw);
+    const email = String(getField(row, colMap.email, '')).trim().toLowerCase();
+
+    importRows.push({ first, last, role: role || '—', dept: dept || 'Неизвестно', manager, hrName, email });
+  });
+
+  try {
+    const { added, updated } = await apiCall('bulkImportEmployees', { rows: importRows });
+    await refreshAllData();
+    pendingImportData = null;
+    document.getElementById('btnUpdate').disabled = true;
+    document.getElementById('btnUpdate').style.opacity = '0.5';
+    document.getElementById('fileNameLabel').textContent = '';
+    showImportResult('success', `✅ Готово! Добавлено: ${added}, обновлено: ${updated}, пропущено: ${skipped}`);
+  } catch (e) {
+    showImportResult('error', '❌ ' + e.message);
+  }
+}
+
+function detectColumns(keys) {
+  // Exact match first (checked in priority order of the variants list, not column order),
+  // then partial match as a fallback.
+  const exact = (variants) => {
+    for (const v of variants) {
+      const found = keys.find(k => k.toLowerCase().trim() === v.toLowerCase().trim());
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const partial = (variants) => {
+    for (const v of variants) {
+      const found = keys.find(k => k.toLowerCase().replace(/[\s_]/g,'').includes(v.toLowerCase().replace(/[\s_]/g,'')));
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const find = (exactVars, partialVars) => exact(exactVars) || partial(partialVars || exactVars);
+  return {
+    displayName: find(['display name','displayname'], ['displayname','fullname']),
+    first: find(['first name','firstname'], ['firstname','имя']),
+    last: find(['last name','lastname'], ['lastname','фамилия']),
+    role: find(['job title','jobtitle'], ['jobtitle','position','должность','title']),
+    dept: find(['site','Site'], ['site']),
+    manager: find(['reports to','reportsto'], ['reportsto','manager','руководитель']),
+    // "HR Manager" is the canonical column name and must win over any other HR-ish column
+    hr: find(['hr manager','hrmanager'], ['hrmanager','hr admin','hradmin']),
+    email: find(['email','e-mail','work email','workemail'], ['email','почта'])
+  };
+}
+
+function getField(row, key, def) {
+  if (!key) return def;
+  return row[key] !== undefined ? row[key] : def;
+}
+
+function mapHRName(raw) {
+  if (!raw) return '';
+  const trimmed = String(raw).trim();
+  const r = trimmed.toLowerCase();
+
+  // Match against HR names registered in Users management (admin-editable, so new HRs work
+  // automatically). Admins who set an hrName (dual-role: also runs 1:1s themselves) count too.
+  const hrUsers = Object.values(USERS).filter(u => u.hrName);
+  const match = hrUsers.find(u => {
+    const hn = u.hrName.toLowerCase();
+    return r === hn || r.includes(hn) || hn.includes(r);
+  });
+  if (match) return match.hrName;
+
+  // Legacy fallback aliases for common transliterations, kept for backward compatibility
+  if (r.includes('нелли') || r.includes('nelli') || r.includes('nailia') || r.includes('naul')) return 'Нелли';
+  if (r.includes('катерин') || r.includes('katerina') || r.includes('katsiar') || r.includes('dolia')) return 'Катерина';
+  if (r.includes('алина') || r.includes('alina') || r.includes('stsep') || r.includes('step')) return 'Алина';
+
+  return trimmed.split(' ')[0];
+}
+
+function showImportResult(type, msg) {
+  const el = document.getElementById('importResult');
+  el.style.display = 'block';
+  el.className = 'import-result ' + type;
+  el.textContent = msg;
+}
+
+// ===== CALENDAR INVITE SETTINGS =====
+function renderInviteSettings() {
+  document.getElementById('inviteSubject').value = INVITE_SETTINGS.subject;
+  document.getElementById('inviteBody').value = INVITE_SETTINGS.body;
+}
+
+async function saveInviteSettings() {
+  const subject = document.getElementById('inviteSubject').value.trim();
+  const body = document.getElementById('inviteBody').value.trim();
+  if (!subject || !body) { alert('Заполните тему и текст письма'); return; }
+  try {
+    await apiCall('saveInviteSettings', { subject, body });
+    INVITE_SETTINGS = { subject, body };
+    const el = document.getElementById('inviteSettingsResult');
+    el.style.display = 'block';
+    el.className = 'import-result success';
+    el.textContent = '✅ Шаблон сохранён';
+    setTimeout(() => { el.style.display = 'none'; }, 3000);
+  } catch (e) {
+    alert('Не удалось сохранить: ' + e.message);
+  }
+}
+
+function fillTemplate(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (m, key) => (vars[key] !== undefined ? vars[key] : m));
+}
+
+// Builds a minimal .ics calendar file for one 1:1 meeting (30 min, starting at the chosen time)
+function buildICS(meeting, emp, hrEmail) {
+  const dt = new Date(`${meeting.date}T${meeting.time || '10:00'}:00`);
+  const end = new Date(dt.getTime() + 30*60000);
+  const fmt = d => d.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  const uid = `1to1-${meeting.empId}-${meeting.date}-${meeting.time||'1000'}@hr1to1tool`;
+  const attendees = [];
+  if (emp.email) attendees.push(`ATTENDEE;CN=${emp.first} ${emp.last}:mailto:${emp.email}`);
+  if (hrEmail) attendees.push(`ATTENDEE;CN=${meeting.hrName||''}:mailto:${hrEmail}`);
+  return [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//HR 1:1 Tool//RU','BEGIN:VEVENT',
+    `UID:${uid}`,`DTSTAMP:${fmt(new Date())}`,`DTSTART:${fmt(dt)}`,`DTEND:${fmt(end)}`,
+    `SUMMARY:1:1 ${emp.first} ${emp.last} — ${meeting.hrName||''}`,
+    ...attendees,'END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+}
+
+// Downloads the .ics file and opens a pre-filled mailto draft using the admin-configured
+// template. This is the best a static client-side page can do without a mail/Calendar-API
+// backend — see the note in the "✉️ Приглашения" settings tab.
+function sendMeetingInvite(meeting, emp) {
+  const hrEmail = getHREmailByName(emp.hrName) || '';
+  const ics = buildICS(meeting, emp, hrEmail);
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `1to1_${emp.first}_${meeting.date}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+
+  const vars = { employee: `${emp.first} ${emp.last}`, hr: meeting.hrName||'', date: meeting.date, time: meeting.time||'10:00' };
+  const subject = fillTemplate(INVITE_SETTINGS.subject, vars);
+  const body = fillTemplate(INVITE_SETTINGS.body, vars);
+  const to = [emp.email, hrEmail].filter(Boolean).join(',');
+  const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n(Приложите скачанный .ics-файл к письму, чтобы событие попало в календарь получателей.)')}`;
+  window.open(mailto, '_blank');
+}
+
+// ===== EMPLOYEES =====
+function getVisibleEmployees() {
+  if (!currentUser) return [];
+  if (canSeeAll(currentUser.role)) return employees;
+  return employees.filter(e => e.hrName === currentUser.hrName);
+}
+
+function renderEmployees() {
+  const dept = document.getElementById('filterDept').value;
+  const hr = document.getElementById('filterHR') ? document.getElementById('filterHR').value : '';
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+  let list = getVisibleEmployees().filter(e => {
+    return (!dept || e.dept === dept) &&
+           (!hr || e.hrName === hr) &&
+           (!search || `${e.first} ${e.last}`.toLowerCase().includes(search));
+  });
+  document.getElementById('empCount').textContent = `(${list.length})`;
+  const tbody = document.getElementById('employeesTable');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div>👥</div>Нет сотрудников</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(e => `
+    <tr>
+      <td><strong class="emp-link" onclick="openEmployeeProfile('${e.id}')">${e.first} ${e.last}</strong></td>
+      <td>${e.role}</td>
+      <td><span class="badge badge-risk-low">${e.dept}</span></td>
+      <td>${e.manager || '—'}</td>
+      <td>${e.hrName || '—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn-secondary" onclick="openEditEmployee('${e.id}')">✏️</button>
+        <button class="btn-danger" onclick="deleteEmployee('${e.id}')">🗑</button>
+        <button class="btn-green" onclick="openAddMeetingFor('${e.id}')">+ 1:1</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddEmployee() {
+  document.getElementById('modalEmpTitle').textContent = 'Добавить сотрудника';
+  document.getElementById('empId').value = '';
+  ['empFirst','empLast','empRole','empManager','empEmail'].forEach(id => document.getElementById(id).value = '');
+  renderDeptOptions();
+  document.getElementById('empDept').value = '';
+  // Pre-fill with the current user's own HR-name if they have one — covers both plain
+  // hr_manager accounts and admins who've opted into the dual "also an HR-manager" role.
+  document.getElementById('empHR').value = currentUser.hrName || '';
+  openModal('modalEmployee');
+}
+
+function openEditEmployee(id) {
+  const e = employees.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('modalEmpTitle').textContent = 'Редактировать';
+  document.getElementById('empId').value = e.id;
+  document.getElementById('empFirst').value = e.first;
+  document.getElementById('empLast').value = e.last;
+  document.getElementById('empRole').value = e.role;
+  renderDeptOptions();
+  document.getElementById('empDept').value = e.dept;
+  document.getElementById('empManager').value = e.manager || '';
+  document.getElementById('empEmail').value = e.email || '';
+  document.getElementById('empHR').value = e.hrName || '';
+  openModal('modalEmployee');
+}
+
+async function saveEmployee() {
+  const first = document.getElementById('empFirst').value.trim();
+  const last = document.getElementById('empLast').value.trim();
+  const role = document.getElementById('empRole').value.trim();
+  const dept = document.getElementById('empDept').value;
+  if (!first || !last || !role || !dept) { alert('Заполните обязательные поля'); return; }
+  const id = document.getElementById('empId').value || undefined; // undefined → server assigns a new id
+  const emp = { id, first, last, role, dept,
+    manager: document.getElementById('empManager').value.trim(),
+    email: document.getElementById('empEmail').value.trim().toLowerCase(),
+    hrName: document.getElementById('empHR').value };
+  try {
+    await apiCall('saveEmployee', emp);
+    closeModal('modalEmployee');
+    await refreshAllData();
+  } catch (e) {
+    alert('Не удалось сохранить: ' + e.message);
+  }
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Удалить сотрудника?')) return;
+  try {
+    await apiCall('deleteEmployee', { id });
+    await refreshAllData();
+  } catch (e) {
+    alert('Не удалось удалить: ' + e.message);
+  }
+}
+
+// ===== MEETINGS =====
+function getVisibleMeetings() {
+  if (!currentUser) return [];
+  if (canSeeAll(currentUser.role)) return meetings;
+  const myIds = employees.filter(e => e.hrName === currentUser.hrName).map(e => e.id);
+  return meetings.filter(m => myIds.includes(m.empId));
+}
+
+function renderMeetings() {
+  const dept = document.getElementById('filterMeetingDept').value;
+  const hr = document.getElementById('filterMeetingHR').value;
+  const month = document.getElementById('filterMonth').value;
+  let list = getVisibleMeetings().filter(m => {
+    const emp = employees.find(e => e.id === m.empId);
+    return (!dept || (emp && emp.dept === dept)) &&
+           (!hr || (emp && emp.hrName === hr)) &&
+           (!month || m.date.startsWith(month));
+  }).sort((a,b) => b.date.localeCompare(a.date));
+
+  const moodEmoji = ['','😟','😕','😐','😊','😄'];
+  const riskMap = { low:['badge-risk-low','Низкий'], mid:['badge-risk-mid','Средний'], high:['badge-risk-high','Высокий'] };
+  const tbody = document.getElementById('meetingsTable');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div>📋</div>Встреч нет</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(m => {
+    const emp = employees.find(e => e.id === m.empId);
+    const [rc,rl] = riskMap[m.risk] || ['badge-risk-low','—'];
+    return `<tr>
+      <td>${m.date}</td>
+      <td><strong class="emp-link" onclick="${emp ? `openEmployeeProfile('${emp.id}')` : ''}">${emp ? emp.first+' '+emp.last : '—'}</strong><br><small style="color:#999">${emp ? emp.hrName : ''}</small></td>
+      <td>${emp ? emp.dept : '—'}</td>
+      <td style="font-size:20px">${moodEmoji[m.mood]||'—'}</td>
+      <td><span class="badge ${rc}">${rl}</span></td>
+      <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${m.notes}">${m.notes||'—'}</td>
+      <td style="max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${m.followup}">${m.followup||'—'}</td>
+      <td><button class="btn-danger" onclick="deleteMeeting('${m.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddMeeting() {
+  document.getElementById('meetId').value='';
+  document.getElementById('meetDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('meetTime').value = '10:00';
+  document.getElementById('meetSendInvite').checked = true;
+  document.getElementById('meetNotes').value='';
+  document.getElementById('meetFollowup').value='';
+  document.getElementById('meetRisk').value='low';
+  selectedMood=0;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  const sel = document.getElementById('meetEmployee');
+  const list = getVisibleEmployees();
+  sel.innerHTML = list.map(e => `<option value="${e.id}">${e.first} ${e.last} — ${e.dept}</option>`).join('');
+  openModal('modalMeeting');
+}
+
+function openAddMeetingFor(empId) {
+  openAddMeeting();
+  document.getElementById('meetEmployee').value = empId;
+}
+
+function selectMood(n) {
+  selectedMood=n;
+  document.querySelectorAll('.mood-btn').forEach((b,i) => b.classList.toggle('selected', i+1===n));
+}
+
+async function saveMeeting() {
+  const empId = document.getElementById('meetEmployee').value;
+  const date = document.getElementById('meetDate').value;
+  if (!empId || !date) { alert('Выберите сотрудника и дату'); return; }
+  const emp = employees.find(e => e.id === empId);
+  const time = document.getElementById('meetTime').value || '10:00';
+  const sendInvite = document.getElementById('meetSendInvite').checked;
+  const meetingData = {
+    id: document.getElementById('meetId').value || undefined,
+    empId, date, time,
+    mood: selectedMood,
+    risk: document.getElementById('meetRisk').value,
+    notes: document.getElementById('meetNotes').value.trim(),
+    followup: document.getElementById('meetFollowup').value.trim(),
+    hrName: emp ? emp.hrName : (currentUser.hrName || currentUser.name)
+  };
+  try {
+    await apiCall('saveMeeting', meetingData);
+    closeModal('modalMeeting');
+    await refreshAllData();
+    if (sendInvite && emp) sendMeetingInvite(meetingData, emp);
+  } catch (e) {
+    alert('Не удалось сохранить: ' + e.message);
+  }
+}
+
+async function deleteMeeting(id) {
+  if (!confirm('Удалить встречу?')) return;
+  try {
+    await apiCall('deleteMeeting', { id });
+    await refreshAllData();
+    const profileModal = document.getElementById('modalEmpProfile');
+    if (profileModal && profileModal.classList.contains('open')) {
+      const empId = document.getElementById('empProfileId').value;
+      if (empId) openEmployeeProfile(empId);
+    }
+  } catch (e) {
+    alert('Не удалось удалить: ' + e.message);
+  }
+}
+
+// Opens "add meeting" from within the employee profile drill-down, remembering to
+// jump back to that profile once the meeting form is closed (see closeModal()).
+function goAddMeetingFromProfile() {
+  const id = document.getElementById('empProfileId').value;
+  profileReturnEmpId = id;
+  closeModal('modalEmpProfile');
+  openAddMeetingFor(id);
+}
+
+// ===== EMPLOYEE PROFILE (drill-down history) =====
+function openEmployeeProfile(empId) {
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+
+  document.getElementById('empProfileId').value = empId;
+  document.getElementById('empProfileName').textContent = `👤 ${emp.first} ${emp.last}`;
+  document.getElementById('empProfileInfo').innerHTML = `
+    ${emp.role} · <span class="badge badge-risk-low">${emp.dept}</span><br>
+    Руководитель: ${emp.manager || '—'} &nbsp;|&nbsp; HR-менеджер: ${emp.hrName || '—'}
+  `;
+
+  const empMeetings = meetings.filter(m => m.empId === empId).sort((a,b) => a.date.localeCompare(b.date));
+  const moods = empMeetings.filter(m => m.mood);
+  const avgMood = moods.length ? (moods.reduce((a,b) => a+b.mood, 0) / moods.length).toFixed(1) : '—';
+  const highRisk = empMeetings.filter(m => m.risk === 'high').length;
+  const openFollowups = empMeetings.filter(m => m.followup && m.followup.trim()).length;
+  const lastDate = empMeetings.length ? empMeetings[empMeetings.length - 1].date : '—';
+
+  const moodEmoji = ['','😟','😕','😐','😊','😄'];
+  const moodTrendHTML = moods.length
+    ? `<div class="mood-trend">${moods.map(m => `<span title="${m.date}">${moodEmoji[m.mood]}</span>`).join('')}</div>`
+    : '—';
+
+  document.getElementById('empProfileStats').innerHTML = `
+    <div class="stat-box"><div class="stat-num">${empMeetings.length}</div><div class="stat-label">Всего встреч</div></div>
+    <div class="stat-box"><div class="stat-num">${avgMood!=='—' ? avgMood+'/5' : '—'}</div><div class="stat-label">Ср. настроение</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:${highRisk>0?'#e74c3c':'#1a2a4a'}">${highRisk}</div><div class="stat-label">Высокий риск</div></div>
+    <div class="stat-box"><div class="stat-num" style="font-size:15px;">${lastDate}</div><div class="stat-label">Последняя встреча</div></div>
+  `;
+
+  const riskMap = { low:['','Низкий'], mid:['risk-mid','Средний'], high:['risk-high','Высокий'] };
+  const riskBadge = { low:['badge-risk-low','Низкий'], mid:['badge-risk-mid','Средний'], high:['badge-risk-high','Высокий'] };
+
+  const timelineHTML = empMeetings.length
+    ? empMeetings.slice().reverse().map(m => {
+        const [cls] = riskMap[m.risk] || [''];
+        const [bc,bl] = riskBadge[m.risk] || ['badge-risk-low','—'];
+        return `
+          <div class="timeline-item ${cls}">
+            <div class="timeline-item-head">
+              <strong style="font-size:13px;color:#1a2a4a;">${m.date}</strong>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:18px;" title="Настроение">${moodEmoji[m.mood]||'—'}</span>
+                <span class="badge ${bc}">${bl}</span>
+                <button class="btn-danger" style="padding:4px 9px;" onclick="deleteMeeting('${m.id}')">🗑</button>
+              </div>
+            </div>
+            ${m.notes ? `<div class="timeline-note"><strong>Заметки:</strong> ${m.notes}</div>` : ''}
+            ${m.followup ? `<div class="timeline-followup"><strong>Follow-up:</strong> ${m.followup}</div>` : ''}
+          </div>
+        `;
+      }).join('')
+    : '<div class="empty-state"><div>📋</div>Встреч с этим сотрудником ещё не было</div>';
+
+  document.getElementById('empProfileTimeline').innerHTML = `
+    <div style="margin-bottom:14px;">Динамика настроения: ${moodTrendHTML}</div>
+    ${timelineHTML}
+  `;
+
+  openModal('modalEmpProfile');
+}
+
+// ===== HR STATS =====
+function getWeekRange(offset=0) {
+  const now = new Date();
+  const day = now.getDay() || 7;
+  const mon = new Date(now); mon.setDate(now.getDate() - day + 1 + offset*7);
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 6);
+  return [mon.toISOString().split('T')[0], fri.toISOString().split('T')[0]];
+}
+
+function getMonthRange(offset=0) {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const first = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  const last = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+  return [first, last];
+}
+
+function setQuickDate(type) {
+  const order = ['week','lastweek','month','lastmonth','all'];
+  const idx = order.indexOf(type);
+  document.querySelectorAll('.quick-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
+  let from, to;
+  if (type==='week') [from,to] = getWeekRange(0);
+  else if (type==='lastweek') [from,to] = getWeekRange(-1);
+  else if (type==='month') [from,to] = getMonthRange(0);
+  else if (type==='lastmonth') [from,to] = getMonthRange(-1);
+  else { from='2020-01-01'; to='2099-12-31'; }
+  document.getElementById('statsFrom').value = from;
+  document.getElementById('statsTo').value = to;
+  renderHRStats();
+}
+
+function renderHRStats() {
+  const from = document.getElementById('statsFrom').value || '2020-01-01';
+  const to = document.getElementById('statsTo').value || '2099-12-31';
+  const list = getVisibleMeetings().filter(m => m.date >= from && m.date <= to);
+
+  document.getElementById('stTotal').textContent = list.length;
+  document.getElementById('stEmps').textContent = [...new Set(list.map(m=>m.empId))].length;
+  const moods = list.filter(m=>m.mood);
+  document.getElementById('stMood').textContent = moods.length ? (moods.reduce((a,b)=>a+b.mood,0)/moods.length).toFixed(1)+'/5' : '—';
+  document.getElementById('stRisk').textContent = list.filter(m=>m.risk==='high').length;
+
+  // Real HR-managers, pulled live from Users management — not hardcoded names.
+  // (For an hr_manager viewer, USERS only contains their own doc, so this naturally
+  // shows just their own card — which is the correct scope for that role.)
+  const hrNames = getHRManagerNames();
+  const palette = ['#2a9d8f','#7b5ea7','#e67e22','#3498db','#e74c3c','#f39c12','#16a085','#8e44ad'];
+  const moodEmoji = ['','😟','😕','😐','😊','😄'];
+
+  let cardsHTML = '';
+  let tableHTML = '';
+
+  if (!hrNames.length) {
+    document.getElementById('hrCards').innerHTML = '<div class="empty-state"><div>👥</div>Нет зарегистрированных HR-менеджеров. Добавьте их во вкладке «Пользователи».</div>';
+    document.getElementById('hrSummaryTable').innerHTML = '<tr><td colspan="6"><div class="empty-state">Нет данных</div></td></tr>';
+    return;
+  }
+
+  hrNames.forEach((hr, idx) => {
+    const accent = palette[idx % palette.length];
+    const hrMeets = list.filter(m => {
+      const emp = employees.find(e => e.id===m.empId);
+      return (emp && emp.hrName===hr) || m.hrName===hr;
+    });
+    const hrEmps = [...new Set(hrMeets.map(m=>m.empId))].length;
+    const hrMoods = hrMeets.filter(m=>m.mood);
+    const avgMood = hrMoods.length ? (hrMoods.reduce((a,b)=>a+b.mood,0)/hrMoods.length).toFixed(1) : '—';
+    const highRisk = hrMeets.filter(m=>m.risk==='high').length;
+    const openFollowups = hrMeets.filter(m=>m.followup && m.followup.trim()).length;
+    const totalAssigned = employees.filter(e=>e.hrName===hr).length;
+
+    cardsHTML += `
+      <div class="hr-card" style="border-top-color:${accent};">
+        <h4>👤 ${hr}</h4>
+        <div class="hr-stat-row"><span class="hr-stat-label">Встреч в периоде</span><span class="hr-stat-val">${hrMeets.length}</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">Всего сотрудников</span><span class="hr-stat-val">${totalAssigned}</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">Охвачено встречами</span><span class="hr-stat-val green">${hrEmps}</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">% охвата</span><span class="hr-stat-val">${totalAssigned ? Math.round(hrEmps/totalAssigned*100) : 0}%</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">Ср. настроение</span><span class="hr-stat-val">${avgMood !== '—' ? avgMood+'/5' : '—'}</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">Высокий риск</span><span class="hr-stat-val ${highRisk>0?'orange':''}">${highRisk}</span></div>
+        <div class="hr-stat-row"><span class="hr-stat-label">Follow-up открыто</span><span class="hr-stat-val purple">${openFollowups}</span></div>
+      </div>`;
+
+    tableHTML += `<tr>
+      <td><strong>${hr}</strong></td>
+      <td>${hrMeets.length}</td>
+      <td>${hrEmps} / ${totalAssigned}</td>
+      <td>${avgMood !== '—' ? avgMood+'/5' : '—'}</td>
+      <td style="color:${highRisk>0?'#e74c3c':'#2d9e6b'};font-weight:600;">${highRisk}</td>
+      <td>${openFollowups}</td>
+    </tr>`;
+  });
+
+  document.getElementById('hrCards').innerHTML = cardsHTML;
+  document.getElementById('hrSummaryTable').innerHTML = tableHTML || '<tr><td colspan="6"><div class="empty-state">Нет данных</div></td></tr>';
+}
+
+function exportHRStats() {
+  const from = document.getElementById('statsFrom').value || '';
+  const to = document.getElementById('statsTo').value || '';
+  const list = getVisibleMeetings().filter(m => (!from || m.date>=from) && (!to || m.date<=to));
+  let csv = 'HR-менеджер,Дата,Сотрудник,Должность,Site,Настроение,Риск,Заметки,Follow-up\n';
+  list.sort((a,b)=>b.date.localeCompare(a.date)).forEach(m => {
+    const emp = employees.find(e=>e.id===m.empId);
+    const moods = ['','Очень плохо','Плохо','Нейтрально','Хорошо','Отлично'];
+    const risks = {low:'Низкий',mid:'Средний',high:'Высокий'};
+    csv += [
+      emp?.hrName||'—', m.date,
+      emp ? `${emp.first} ${emp.last}` : '—',
+      emp?.role||'—', emp?.dept||'—',
+      moods[m.mood]||'—', risks[m.risk]||'—',
+      `"${(m.notes||'').replace(/"/g,'""')}"`,
+      `"${(m.followup||'').replace(/"/g,'""')}"`
+    ].join(',') + '\n';
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `HR_Stats_${from}_${to}.csv`;
+  a.click();
+}
+
+// ===== REPORT =====
+function populateReportMonths() {
+  const months = [...new Set(meetings.map(m=>m.date.substring(0,7)))].sort().reverse();
+  const sel = document.getElementById('reportMonth');
+  sel.innerHTML = '<option value="">Всё время</option>' + months.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+function renderReport() {
+  populateReportMonths();
+  const month = document.getElementById('reportMonth').value;
+  const list = getVisibleMeetings().filter(m => {
+    if (!month || month === '') return true;
+    return m.date && m.date.startsWith(month);
+  });
+  const uniq = [...new Set(list.map(m=>m.empId))];
+  const moods = list.filter(m=>m.mood);
+  const avg = moods.length ? (moods.reduce((a,b)=>a+b.mood,0)/moods.length).toFixed(1) : '—';
+
+  document.getElementById('rTotal').textContent = list.length;
+  document.getElementById('rEmployees').textContent = uniq.length;
+  document.getElementById('rMood').textContent = avg!=='—' ? avg+'/5' : '—';
+  document.getElementById('rRisk').textContent = list.filter(m=>m.risk==='high').length;
+
+  const byDept = {};
+  list.forEach(m => {
+    const emp = employees.find(e=>e.id===m.empId);
+    const d = emp?.dept||'Неизвестно';
+    if (!byDept[d]) byDept[d]=[];
+    byDept[d].push(m);
+  });
+
+  const moodEmoji = ['','😟','😕','😐','😊','😄'];
+  let html = '';
+  Object.entries(byDept).forEach(([dept,ms]) => {
+    html += `<div style="padding:20px 24px;">
+      <h3 style="color:#1a2a4a;margin-bottom:14px;font-size:15px;">📁 ${dept} — ${ms.length} встреч</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#f7f9fb;">
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">ДАТА</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">СОТРУДНИК</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">HR</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">ДУХ</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">РИСК</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">ЗАМЕТКИ</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;color:#999;font-weight:700;">FOLLOW-UP</th>
+        </tr></thead><tbody>`;
+    ms.forEach(m => {
+      const emp = employees.find(e=>e.id===m.empId);
+      const rc = {low:'#2d9e6b',mid:'#f39c12',high:'#e74c3c'}[m.risk];
+      const rl = {low:'Низкий',mid:'Средний',high:'Высокий'}[m.risk];
+      html += `<tr style="border-top:1px solid #f0f4f8;">
+        <td style="padding:9px 12px;font-size:13px;">${m.date}</td>
+        <td style="padding:9px 12px;font-size:13px;"><strong>${emp?emp.first+' '+emp.last:'—'}</strong></td>
+        <td style="padding:9px 12px;font-size:13px;">${emp?.hrName||'—'}</td>
+        <td style="padding:9px 12px;font-size:18px;">${moodEmoji[m.mood]||'—'}</td>
+        <td style="padding:9px 12px;font-size:13px;color:${rc};font-weight:600;">${rl}</td>
+        <td style="padding:9px 12px;font-size:13px;">${m.notes||'—'}</td>
+        <td style="padding:9px 12px;font-size:13px;">${m.followup||'—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  });
+
+  document.getElementById('reportDetails').innerHTML = html || '<div class="empty-state"><div>📊</div>Нет данных</div>';
+}
+
+function exportReport() {
+  const month = document.getElementById('reportMonth').value||'all';
+  const list = getVisibleMeetings().filter(m => {
+    if (!month || month === '' || month === 'all') return true;
+    return m.date && m.date.startsWith(month);
+  });
+  let csv = 'Дата,Сотрудник,Должность,Site,Руководитель,HR-менеджер,Настроение,Риск,Заметки,Follow-up\n';
+  const moods=['','Очень плохо','Плохо','Нейтрально','Хорошо','Отлично'];
+  const risks={low:'Низкий',mid:'Средний',high:'Высокий'};
+  list.sort((a,b)=>b.date.localeCompare(a.date)).forEach(m=>{
+    const emp=employees.find(e=>e.id===m.empId);
+    csv+=[m.date,emp?`${emp.first} ${emp.last}`:'—',emp?.role||'—',emp?.dept||'—',
+      emp?.manager||'—',emp?.hrName||'—',moods[m.mood]||'—',risks[m.risk]||'—',
+      `"${(m.notes||'').replace(/"/g,'""')}"`,`"${(m.followup||'').replace(/"/g,'""')}"`
+    ].join(',')+'\n';
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`HR_Report_${month}.csv`; a.click();
+}
+
+// ===== USERS MANAGEMENT =====
+// Admin is a role like any other now — it can be reassigned, edited, and transferred.
+// The only guardrail: there must always be at least one admin account left in the system.
+function countAdmins(usersObj, excludeEmail) {
+  return Object.entries(usersObj).filter(([e,u]) => u.role === 'admin' && e !== excludeEmail).length;
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('usersTable');
+  if (!tbody) return;
+  const entries = Object.entries(USERS);
+  tbody.innerHTML = entries.map(([email, u]) => `
+    <tr>
+      <td><strong>${u.name}</strong>${currentUser && currentUser.email===email ? ' <span style="color:#2a9d8f;font-size:11px;">(вы)</span>' : ''}</td>
+      <td>${u.surname||'—'}</td>
+      <td>${email}</td>
+      <td><span class="badge badge-risk-low">${ROLE_LABELS[u.role]||u.role}</span></td>
+      <td>${u.hrName||'—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn-secondary" onclick="openEditUser('${email}')">✏️</button>
+        <button class="btn-danger" onclick="deleteUser('${email}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function toggleHRNameField() {
+  const role = document.getElementById('userRole').value;
+  const group = document.getElementById('userHRNameGroup');
+  const hint = document.getElementById('userHRNameHint');
+  const label = document.getElementById('userHRNameLabel');
+  // Admins can ALSO act as an HR-manager for specific teams (e.g. the CHRO running some
+  // 1:1s personally) — so the field stays visible and just becomes an opt-in for them,
+  // instead of being hidden/cleared like before.
+  if (group) group.style.display = 'block';
+  if (role === 'admin') {
+    if (label) label.textContent = 'Также HR-менеджер для своих команд (необязательно)';
+    if (hint) hint.textContent = 'Заполните, если этот админ сам ведёт 1:1 и должен появляться в статистике HR как обычный HR-менеджер. Оставьте пустым, если нет.';
+  } else {
+    if (label) label.textContent = 'Имя в системе (как отображается у сотрудников)';
+    if (hint) hint.textContent = '';
+  }
+}
+
+function openAddUser() {
+  document.getElementById('modalUserTitle').textContent = 'Добавить пользователя';
+  document.getElementById('userOldEmail').value = '';
+  ['userName','userSurname','userEmail','userHRName'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('userRole').value = 'hr_manager';
+  document.getElementById('userEmail').removeAttribute('readonly');
+  document.getElementById('userEmail').style.background = '';
+  toggleHRNameField();
+  openModal('modalUser');
+}
+
+function openEditUser(email) {
+  const u = USERS[email];
+  if (!u) return;
+  document.getElementById('modalUserTitle').textContent = 'Редактировать пользователя';
+  document.getElementById('userOldEmail').value = email;
+  document.getElementById('userName').value = u.name;
+  document.getElementById('userSurname').value = u.surname||'';
+  document.getElementById('userEmail').value = email;
+  document.getElementById('userEmail').removeAttribute('readonly');
+  document.getElementById('userEmail').style.background = '';
+  document.getElementById('userRole').value = u.role;
+  document.getElementById('userHRName').value = u.hrName||'';
+  toggleHRNameField();
+  openModal('modalUser');
+}
+
+async function saveUser() {
+  const name = document.getElementById('userName').value.trim();
+  const email = document.getElementById('userEmail').value.trim().toLowerCase();
+  const role = document.getElementById('userRole').value;
+  if (!name || !email) { alert('Заполните обязательные поля'); return; }
+  if (!email.endsWith('@' + CONFIG.COMPANY_DOMAIN)) {
+    alert(`Email должен быть в домене @${CONFIG.COMPANY_DOMAIN} — иначе этот человек не сможет войти через Google.`);
+    return;
+  }
+
+  const oldEmail = document.getElementById('userOldEmail').value;
+  const isNewUser = !oldEmail;
+
+  // Guardrail: don't allow demoting the last remaining admin
+  if (!isNewUser && USERS[oldEmail] && USERS[oldEmail].role === 'admin' && role !== 'admin') {
+    if (countAdmins(USERS, oldEmail) === 0) {
+      alert('Нельзя понизить последнего администратора. Сначала назначьте роль Admin другому пользователю.');
+      return;
+    }
+  }
+
+  const profileData = {
+    email,
+    oldEmail: isNewUser ? null : oldEmail,
+    name,
+    surname: document.getElementById('userSurname').value.trim(),
+    role,
+    // Non-admin roles default to their own name if left blank (unchanged behavior).
+    // Admins stay blank unless they explicitly type a name here — that's the opt-in
+    // for "I'm also an HR-manager for some teams" dual-role mode.
+    hrName: document.getElementById('userHRName').value.trim() || (role === 'admin' ? '' : name)
+  };
+
+  try {
+    await apiCall('saveUser', profileData);
+    closeModal('modalUser');
+    await refreshAllData();
+  } catch (e) {
+    alert('Не удалось сохранить: ' + e.message);
+  }
+}
+
+async function deleteUser(email) {
+  const u = USERS[email];
+  if (!u) return;
+  if (u.role === 'admin' && countAdmins(USERS, email) === 0) {
+    alert('Нельзя удалить последнего администратора. Сначала назначьте роль Admin другому пользователю.');
+    return;
+  }
+  if (currentUser && currentUser.email === email) {
+    alert('Нельзя удалить свою собственную учётную запись, пока вы в неё вошли.');
+    return;
+  }
+  if (!confirm(`Удалить пользователя ${email}?\n\nОн потеряет доступ ко всем данным сразу (просто больше не сможет войти через Google).`)) return;
+  try {
+    await apiCall('deleteUser', { email });
+    await refreshAllData();
+  } catch (e) {
+    alert('Не удалось удалить: ' + e.message);
+  }
+}
+
+// Live list of HR-manager display names, sourced from Users management (not hardcoded).
+// Note: for an hr_manager viewer, USERS only ever contains their own profile doc
+// (see attachDataListeners), so this correctly collapses to just their own name for them.
+function getHRManagerNames() {
+  const names = Object.values(USERS).filter(u => u.hrName).map(u => u.hrName);
+  return [...new Set(names)];
+}
+
+// Looks up the email of the HR-manager user registered under a given hrName display name.
+function getHREmailByName(hrName) {
+  const entry = Object.entries(USERS).find(([email, u]) => u.hrName === hrName);
+  return entry ? entry[0] : '';
+}
+
+function updateHRSelects() {
+  const hrUsers = Object.values(USERS).filter(u => u.hrName);
+  const opts = hrUsers.map(u => `<option>${u.hrName}</option>`).join('');
+  ['empHR','filterHR','filterMeetingHR'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const isFilter = id.startsWith('filter');
+    const cur = sel.value;
+    sel.innerHTML = (isFilter ? '<option value="">Все HR-менеджеры</option>' : '<option value="">— Выберите —</option>') + opts;
+    if (cur) sel.value = cur;
+  });
+}
+
+// ===== MODAL =====
+// (Google Sign-In renders its own button — see window.onload — nothing to populate here)
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  // Returning from the "add meeting" modal back to the employee profile it was opened from
+  if (id === 'modalMeeting' && profileReturnEmpId) {
+    const backTo = profileReturnEmpId;
+    profileReturnEmpId = null;
+    openEmployeeProfile(backTo);
+  }
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) closeModal(m.id); });
+});
+</script>
+</body>
+</html>
